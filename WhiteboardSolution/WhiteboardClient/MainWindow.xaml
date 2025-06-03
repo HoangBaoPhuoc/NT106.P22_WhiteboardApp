@@ -1,0 +1,170 @@
+﻿<Window
+    x:Class="WhiteboardClient.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="clr-namespace:WhiteboardClient"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    Title="Whiteboard"
+    Width="800"
+    Height="600"
+    WindowStartupLocation="CenterScreen"
+    mc:Ignorable="d">
+
+    <Window.Background>
+        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Offset="0.0" Color="White" />
+            <GradientStop Offset="0.5" Color="#FFE9F6FF" />
+            <GradientStop Offset="1.0" Color="#FFBBDEFB" />
+        </LinearGradientBrush>
+    </Window.Background>
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+
+        <!--  Title  -->
+        <Label
+            Grid.ColumnSpan="2"
+            Margin="0,20,0,0"
+            HorizontalAlignment="Center"
+            Content="WHITEBOARD-SHARE APP"
+            FontSize="28"
+            FontWeight="Bold"
+            Foreground="#FF4D7996" />
+
+        <!--  Left side: Status + Canvas  -->
+        <Grid Grid.Column="0" Margin="40,90,20,20">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <!--  StatusLabel  -->
+                <RowDefinition Height="*" />
+                <!--  Canvas  -->
+            </Grid.RowDefinitions>
+
+            <!--  StatusLabel trên Canvas  -->
+            <Label
+                x:Name="StatusLabel"
+                Grid.Row="0"
+                Margin="-3,0,-3,10"
+                Padding="10"
+                HorizontalContentAlignment="Center"
+                VerticalContentAlignment="Center"
+                Background="#FFE2F3FF"
+                BorderBrush="#FF2E86AB"
+                BorderThickness="3"
+                Content="Ready"
+                FontSize="14"
+                FontWeight="SemiBold"
+                Foreground="#FF2E86AB" />
+            <Rectangle
+                Grid.Row="1"
+                Margin="-3,-3,-3,-3"
+                Fill="#FF2E86AB" />
+            <!--  Canvas vẽ  -->
+            <Canvas
+                Name="DrawCanvas"
+                Grid.Row="1"
+                Background="White"
+                MouseDown="Canvas_MouseDown"
+                MouseLeave="Canvas_MouseLeave"
+                MouseMove="Canvas_MouseMove"
+                MouseUp="Canvas_MouseUp" />
+        </Grid>
+
+        <!--  Tool panel bên phải  -->
+        <StackPanel
+            Grid.Column="1"
+            Width="120"
+            Margin="10,100,20,20"
+            VerticalAlignment="Top">
+            <Button
+                x:Name="ConnectButton"
+                Margin="5"
+                Background="#FF7EED8F"
+                BorderBrush="#FF5D5D5D"
+                Click="ConnectButton_Click"
+                Content="Connect"
+                Foreground="#FF064C10"
+                TextBlock.FontWeight="Bold" />
+            <Button
+                x:Name="DisconnectButton"
+                Margin="5"
+                Background="#FFFFEE80"
+                BorderBrush="#FF5D5D5D"
+                Click="Disconnect_Click"
+                Content="Disconnect"
+                Foreground="#FF504500"
+                IsEnabled="False"
+                TextBlock.FontWeight="Bold" />
+            <Button
+                x:Name="EndButton"
+                Margin="5"
+                Background="#FFE45151"
+                BorderBrush="#FF5D5D5D"
+                Click="EndButton_Click"
+                Content="End"
+                Foreground="#FF4C0000"
+                IsEnabled="False"
+                TextBlock.FontWeight="Bold" />
+            <ComboBox
+                x:Name="ColorPicker"
+                Margin="5"
+                HorizontalContentAlignment="Center"
+                IsEnabled="False"
+                SelectionChanged="ColorPicker_SelectionChanged"
+                TextBlock.FontWeight="Bold">
+                <ComboBoxItem
+                    Content="Black"
+                    IsSelected="True"
+                    Tag="#000000" />
+                <ComboBoxItem
+                    Content="Red"
+                    Foreground="#FF9A3434"
+                    Tag="#FF0000" />
+                <ComboBoxItem
+                    Content="Blue"
+                    Foreground="#FF1D1D96"
+                    Tag="#0000FF" />
+                <ComboBoxItem
+                    Content="Green"
+                    Foreground="#FF005F00"
+                    Tag="#008000" />
+            </ComboBox>
+            <ComboBox
+                x:Name="ThicknessPicker"
+                Margin="5"
+                HorizontalContentAlignment="Center"
+                IsEnabled="False"
+                SelectionChanged="ThicknessPicker_SelectionChanged"
+                TextBlock.FontWeight="Bold">
+                <ComboBoxItem
+                    Content="Thin"
+                    IsSelected="True"
+                    Tag="1" />
+                <ComboBoxItem Content="Medium" Tag="3" />
+                <ComboBoxItem Content="Thick" Tag="5" />
+            </ComboBox>
+            <Button
+                x:Name="EraserButton"
+                Margin="5"
+                Background="White"
+                BorderBrush="#FF5D5D5D"
+                Click="EraserButton_Click"
+                Content="Eraser"
+                IsEnabled="False"
+                TextBlock.FontWeight="Bold" />
+            <Label
+                x:Name="ClientCountLabel"
+                Margin="5"
+                HorizontalContentAlignment="Center"
+                Background="#FFE8F4FD"
+                BorderBrush="#FF2E86AB"
+                BorderThickness="1"
+                Content="Clients: 0"
+                Foreground="#FF2E86AB" />
+        </StackPanel>
+    </Grid>
+</Window>

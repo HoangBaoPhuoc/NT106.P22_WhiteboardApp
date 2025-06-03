@@ -1,0 +1,7 @@
+E:\UIT\HK3\[NT106.P22.ANTT]_Network\Lab\Lab06\Whiteboard\WhiteboardSolution\WhiteboardServer\bin\Debug\WhiteboardServer.exe.config
+E:\UIT\HK3\[NT106.P22.ANTT]_Network\Lab\Lab06\Whiteboard\WhiteboardSolution\WhiteboardServer\bin\Debug\WhiteboardServer.exe
+E:\UIT\HK3\[NT106.P22.ANTT]_Network\Lab\Lab06\Whiteboard\WhiteboardSolution\WhiteboardServer\bin\Debug\WhiteboardServer.pdb
+E:\UIT\HK3\[NT106.P22.ANTT]_Network\Lab\Lab06\Whiteboard\WhiteboardSolution\WhiteboardServer\obj\Debug\WhiteboardServer.csproj.AssemblyReference.cache
+E:\UIT\HK3\[NT106.P22.ANTT]_Network\Lab\Lab06\Whiteboard\WhiteboardSolution\WhiteboardServer\obj\Debug\WhiteboardServer.csproj.CoreCompileInputs.cache
+E:\UIT\HK3\[NT106.P22.ANTT]_Network\Lab\Lab06\Whiteboard\WhiteboardSolution\WhiteboardServer\obj\Debug\WhiteboardServer.exe
+E:\UIT\HK3\[NT106.P22.ANTT]_Network\Lab\Lab06\Whiteboard\WhiteboardSolution\WhiteboardServer\obj\Debug\WhiteboardServer.pdb

@@ -1,0 +1,16 @@
+[
+  {
+    "Name": "New Profile",
+    "Projects": [
+      {
+        "Path": "WhiteboardServer\\WhiteboardServer.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "WhiteboardClient\\WhiteboardClient.csproj",
+        "Action": "Start",
+        "DebugTarget": "WhiteboardClient"
+      }
+    ]
+  }
+]
