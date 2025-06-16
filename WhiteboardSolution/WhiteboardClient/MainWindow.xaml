@@ -9,13 +9,14 @@
     Width="800"
     Height="600"
     WindowStartupLocation="CenterScreen"
+    ResizeMode="NoResize"
     mc:Ignorable="d">
 
     <Window.Background>
-        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-            <GradientStop Offset="0.0" Color="White" />
+        <LinearGradientBrush StartPoint="1,1" EndPoint="0,0">
+            <GradientStop Offset="0.0" Color="#FFC7F9FF" />
             <GradientStop Offset="0.5" Color="#FFE9F6FF" />
-            <GradientStop Offset="1.0" Color="#FFBBDEFB" />
+            <GradientStop Offset="1.0" Color="#FFE2F2FF" />
         </LinearGradientBrush>
     </Window.Background>
 
@@ -27,13 +28,12 @@
 
         <!--  Title  -->
         <Label
-            Grid.ColumnSpan="2"
-            Margin="0,20,0,0"
-            HorizontalAlignment="Center"
+            Margin="220,13,0,7"
+            HorizontalAlignment="Left"
             Content="WHITEBOARD-SHARE APP"
             FontSize="28"
             FontWeight="Bold"
-            Foreground="#FF4D7996" />
+            Foreground="#FF104567" />
 
         <!--  Left side: Status + Canvas  -->
         <Grid Grid.Column="0" Margin="40,90,20,20">
@@ -54,16 +54,14 @@
                 VerticalContentAlignment="Center"
                 Background="#FFE2F3FF"
                 BorderBrush="#FF2E86AB"
-                BorderThickness="3"
+                BorderThickness="1"
                 Content="Ready"
                 FontSize="14"
                 FontWeight="SemiBold"
                 Foreground="#FF2E86AB" />
-            <Rectangle
-                Grid.Row="1"
-                Margin="-3,-3,-3,-3"
-                Fill="#FF2E86AB" />
+
             <!--  Canvas vẽ  -->
+
             <Canvas
                 Name="DrawCanvas"
                 Grid.Row="1"
@@ -166,5 +164,37 @@
                 Content="Clients: 0"
                 Foreground="#FF2E86AB" />
         </StackPanel>
+        <TextBox
+            x:Name="txtImageUrl"
+            Width="456"
+            Height="20"
+            Margin="74,62,0,0"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Top"
+            TextChanged="txtImageUrl_TextChanged"
+            TextWrapping="Wrap" />
+        <Label
+            Width="34"
+            Height="23"
+            Margin="40,59,0,0"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Top"
+            Content="URL:"
+            FontWeight="Bold" />
+        <Button
+            x:Name="btnInsertImage"
+            Width="96"
+            Height="20"
+            Margin="535,62,0,0"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Top"
+            Background="#FF295B7F"
+            BorderBrush="#FF80BDD6"
+            BorderThickness="1"
+            Click="btnInsertImage_Click"
+            Content="Upload Image"
+            FontWeight="DemiBold"
+            Foreground="White" />
+
     </Grid>
 </Window>

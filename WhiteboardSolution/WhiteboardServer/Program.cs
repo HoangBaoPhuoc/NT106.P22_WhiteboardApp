@@ -7,7 +7,10 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.IO;
-using System.Runtime.ConstrainedExecution;
+using System.Net.Mail;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using System.Configuration;
 
 namespace WhiteboardServer
 {
@@ -16,6 +19,11 @@ namespace WhiteboardServer
         static List<TcpClient> clients = new List<TcpClient>();
         static readonly object clientLock = new object();
         static byte[] currentWhiteboardState = null;
+        static readonly object stateLock = new object();
+        static List<string> drawingHistory = new List<string>(); // Lưu lịch sử các nét vẽ
+        static readonly object historyLock = new object();
+        static List<string> imageHistory = new List<string>(); // Lưu lịch sử các hình ảnh
+        static readonly object imageHistoryLock = new object();
 
         static void Main()
         {
@@ -30,18 +38,22 @@ namespace WhiteboardServer
                 {
                     TcpClient client = server.AcceptTcpClient();
 
-                lock (clientLock)
-                {
-                    clients.Add(client);
+                    lock (clientLock)
+                    {
+                        clients.Add(client);
                         Console.WriteLine($"Client connected: {client.Client.RemoteEndPoint}");
+                        if (clients.Count > 5)
+                        {
+                            SendAlertEmail(clients.Count);
+                        }
                         Console.WriteLine($"Total clients: {clients.Count}");
-                        // Send client count update to all clients
                         BroadcastClientCount();
                     }
 
-                Thread thread = new Thread(() => HandleClient(client));
-                thread.IsBackground = true;
-                thread.Start();
+                    // Khởi tạo thread xử lý client với sync đầy đủ
+                    Thread thread = new Thread(() => HandleClient(client));
+                    thread.IsBackground = true;
+                    thread.Start();
                 }
                 catch (Exception ex)
                 {
@@ -50,74 +62,17 @@ namespace WhiteboardServer
             }
         }
 
-        static void SendCurrentState(TcpClient client)
-        {
-            try
-            {
-                NetworkStream stream = client.GetStream();
-
-                // Gửi signal bắt đầu sync
-                string startSync = "START_SYNC_IMAGE";
-                byte[] startData = Encoding.UTF8.GetBytes(startSync);
-                stream.Write(startData, 0, startData.Length);
-                Thread.Sleep(100); // Đợi client sẵn sàng
-
-                if (currentWhiteboardState != null)
-                {
-                    // Gửi kích thước của ảnh
-                    byte[] sizeBytes = BitConverter.GetBytes(currentWhiteboardState.Length);
-                    stream.Write(sizeBytes, 0, sizeBytes.Length);
-                    Thread.Sleep(100);
-
-                    // Gửi dữ liệu ảnh
-                    stream.Write(currentWhiteboardState, 0, currentWhiteboardState.Length);
-                }
-
-                // Gửi signal kết thúc sync
-                string endSync = "END_SYNC";
-                byte[] endData = Encoding.UTF8.GetBytes(endSync);
-                stream.Write(endData, 0, endData.Length);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error sending current state: {ex.Message}");
-            }
-        }
-
         static void HandleClient(TcpClient client)
         {
             NetworkStream stream = client.GetStream();
-            byte[] buffer = new byte[4096];
 
             try
             {
-                SendDrawingHistory(client);
+                // Đảm bảo client mới nhận được toàn bộ state hiện tại
+                SendCompleteStateToNewClient(client);
 
-                while (client.Connected)
-                {
-                    int bytesRead = stream.Read(buffer, 0, buffer.Length);
-                    if (bytesRead == 0) break; // client disconnected
-
-                    string msg = Encoding.UTF8.GetString(buffer, 0, bytesRead);
-
-                    if(msg == "DISCONNECT")
-                    {
-                        Console.WriteLine($"Client requested disconnect: {client.Client.RemoteEndPoint}");
-                        break;
-                    }
-                    else if(msg == "END_SESSION")
-                    {
-                        Console.WriteLine($"Client ended session: {client.Client.RemoteEndPoint}");
-                        // Broadcast END_SESSION to all other clients
-                        BroadcastMessage("END_SESSION", client);
-                        break;
-                    }
-                    else
-                    {
-                        // Regular drawing data - broadcast to other clients
-                        Broadcast(buffer, bytesRead, client);
-                    }
-                }
+                // Bắt đầu lắng nghe messages từ client
+                HandleClientMessages(client, stream);
             }
             catch (Exception ex)
             {
@@ -130,7 +85,6 @@ namespace WhiteboardServer
                     clients.Remove(client);
                     Console.WriteLine($"Client disconnected: {client.Client.RemoteEndPoint}");
                     Console.WriteLine($"Remaining clients: {clients.Count}");
-
                     BroadcastClientCount();
                 }
                 try
@@ -141,44 +95,319 @@ namespace WhiteboardServer
             }
         }
 
-        static void SendDrawingHistory(TcpClient client)
+        static void SendCompleteStateToNewClient(TcpClient client)
         {
             try
             {
                 NetworkStream stream = client.GetStream();
+                Console.WriteLine("Sending complete state to new client...");
 
-                // Gửi signal bắt đầu sync
-                string startSync = "START_SYNC";
-                byte[] startData = Encoding.UTF8.GetBytes(startSync);
-                stream.Write(startData, 0, startData.Length);
+                // Bước 1: Gửi tín hiệu bắt đầu đồng bộ
+                SendMessage(client, "SYNC_START");
+                Thread.Sleep(100);
 
-                // Gửi signal kết thúc sync
-                string endSync = "END_SYNC";
-                byte[] endData = Encoding.UTF8.GetBytes(endSync);
-                stream.Write(endData, 0, endData.Length);
+                // Bước 2: Gửi tất cả hình ảnh trong lịch sử
+                List<string> imageSnapshot;
+                lock (imageHistoryLock)
+                {
+                    imageSnapshot = new List<string>(imageHistory);
+                }
+
+                foreach (var imageData in imageSnapshot)
+                {
+                    SendMessage(client, $"INSERT_IMAGE:{imageData}");
+                    Thread.Sleep(50); // Đảm bảo client xử lý từng hình ảnh
+                }
+
+                // Bước 3: Gửi tất cả strokes trong lịch sử
+                SendDrawingHistoryToClient(client);
+
+                // Bước 4: Gửi tín hiệu kết thúc đồng bộ
+                SendMessage(client, "SYNC_END");
+
+                Console.WriteLine("Complete state sent to new client successfully");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error sending history: {ex.Message}");
+                Console.WriteLine($"Error sending complete state: {ex.Message}");
+            }
+        }
+
+        static void SendDrawingHistoryToClient(TcpClient client)
+        {
+            try
+            {
+                List<string> historySnapshot;
+                lock (historyLock)
+                {
+                    historySnapshot = new List<string>(drawingHistory);
+                }
+
+                if (historySnapshot.Count == 0)
+                {
+                    Console.WriteLine("No drawing history to send");
+                    return;
+                }
+
+                Console.WriteLine($"Sending {historySnapshot.Count} drawing commands to client");
+
+                // Chuyển thành danh sách strokes với format JSON
+                var strokes = new List<object>();
+
+                foreach (var msg in historySnapshot)
+                {
+                    var parts = msg.Split(',');
+                    if (parts.Length != 6) continue;
+
+                    if (!double.TryParse(parts[0], out double x1)) continue;
+                    if (!double.TryParse(parts[1], out double y1)) continue;
+                    if (!double.TryParse(parts[2], out double x2)) continue;
+                    if (!double.TryParse(parts[3], out double y2)) continue;
+                    string color = parts[4];
+                    if (!double.TryParse(parts[5], out double thickness)) continue;
+
+                    strokes.Add(new
+                    {
+                        X1 = x1,
+                        Y1 = y1,
+                        X2 = x2,
+                        Y2 = y2,
+                        Color = color,
+                        Thickness = thickness
+                    });
+                }
+
+                var fullState = new
+                {
+                    type = "full_state",
+                    data = strokes
+                };
+
+                string json = JsonConvert.SerializeObject(fullState);
+                SendMessage(client, json);
+
+                Console.WriteLine($"Drawing history sent to client ({json.Length} bytes)");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error sending drawing history: {ex.Message}");
+            }
+        }
+
+        static void SendMessage(TcpClient client, string message)
+        {
+            try
+            {
+                NetworkStream stream = client.GetStream();
+                byte[] messageBytes = Encoding.UTF8.GetBytes(message);
+                byte[] lengthBytes = BitConverter.GetBytes(messageBytes.Length);
+
+                stream.Write(lengthBytes, 0, 4);
+                stream.Write(messageBytes, 0, messageBytes.Length);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error sending message to client: {ex.Message}");
+            }
+        }
+
+        static void HandleClientMessages(TcpClient client, NetworkStream stream)
+        {
+            byte[] lengthBuffer = new byte[4];
+
+            while (client.Connected)
+            {
+                try
+                {
+                    // Đọc length của message trước
+                    int lengthRead = 0;
+                    while (lengthRead < 4)
+                    {
+                        int read = stream.Read(lengthBuffer, lengthRead, 4 - lengthRead);
+                        if (read == 0) return; // Client disconnected
+                        lengthRead += read;
+                    }
+
+                    int messageLength = BitConverter.ToInt32(lengthBuffer, 0);
+
+                    // Kiểm tra message length hợp lệ
+                    if (messageLength <= 0 || messageLength > 50_000_000) // 50MB max
+                    {
+                        Console.WriteLine($"Invalid message length: {messageLength}");
+                        continue;
+                    }
+
+                    // Đọc message content
+                    byte[] messageBuffer = new byte[messageLength];
+                    int totalRead = 0;
+                    while (totalRead < messageLength)
+                    {
+                        int read = stream.Read(messageBuffer, totalRead, messageLength - totalRead);
+                        if (read == 0) return; // Client disconnected
+                        totalRead += read;
+                    }
+
+                    string message = Encoding.UTF8.GetString(messageBuffer);
+                    ProcessClientMessage(client, message, messageBuffer, messageLength);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error reading from client: {ex.Message}");
+                    break;
+                }
+            }
+        }
+
+        static void ProcessClientMessage(TcpClient client, string message, byte[] messageBytes, int length)
+        {
+            try
+            {
+                if (message == "DISCONNECT")
+                {
+                    Console.WriteLine($"Client requested disconnect: {client.Client.RemoteEndPoint}");
+                    return;
+                }
+                else if (message == "END_SESSION")
+                {
+                    Console.WriteLine($"Client ended session: {client.Client.RemoteEndPoint}");
+                    BroadcastMessage("END_SESSION", client);
+                    return;
+                }
+                else if (message.StartsWith("INSERT_IMAGE:"))
+                {
+                    Console.WriteLine("[Server] Processing INSERT_IMAGE message");
+
+                    // Lưu vào lịch sử hình ảnh
+                    string imageData = message.Substring("INSERT_IMAGE:".Length);
+                    lock (imageHistoryLock)
+                    {
+                        imageHistory.Add(imageData);
+
+                        // Giới hạn số lượng hình ảnh để tránh memory leak
+                        if (imageHistory.Count > 50)
+                        {
+                            imageHistory.RemoveAt(0);
+                        }
+                    }
+
+                    // Broadcast image message to other clients
+                    BroadcastWithLength(messageBytes, client);
+                    Console.WriteLine("[Server] Image broadcasted to other clients");
+                }
+                else if (message.StartsWith("WHITEBOARD_STATE:"))
+                {
+                    // Client gửi toàn bộ state của whiteboard (khi có thay đổi lớn)
+                    ProcessWhiteboardStateUpdate(message);
+                }
+                else if (IsDrawingData(message))
+                {
+                    // Xử lý dữ liệu vẽ (drawing strokes)
+                    ProcessDrawingData(client, message, messageBytes);
+                }
+                else
+                {
+                    Console.WriteLine($"[Server] Unknown message format: {message.Substring(0, Math.Min(100, message.Length))}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error processing message: {ex.Message}");
+            }
+        }
+
+        static bool IsDrawingData(string message)
+        {
+            // Kiểm tra format: x1,y1,x2,y2,color,thickness
+            if (!message.Contains(",")) return false;
+
+            string[] parts = message.Split(',');
+            if (parts.Length != 6) return false;
+
+            // Validate các tham số số học
+            return double.TryParse(parts[0], out _) &&
+                   double.TryParse(parts[1], out _) &&
+                   double.TryParse(parts[2], out _) &&
+                   double.TryParse(parts[3], out _) &&
+                   double.TryParse(parts[5], out _);
+        }
+
+        static void ProcessDrawingData(TcpClient client, string message, byte[] messageBytes)
+        {
+            Console.WriteLine($"[Server] Processing drawing data: {message}");
+
+            // Lưu vào lịch sử
+            lock (historyLock)
+            {
+                drawingHistory.Add(message);
+
+                // Giới hạn history size để tránh memory leak
+                if (drawingHistory.Count > 10000)
+                {
+                    drawingHistory.RemoveRange(0, 1000); // Xóa 1000 entries cũ nhất
+                }
+            }
+
+            // Broadcast tới các client khác
+            BroadcastWithLength(messageBytes, client);
+            Console.WriteLine("[Server] Drawing data broadcasted");
+        }
+
+        static void ProcessWhiteboardStateUpdate(string message)
+        {
+            try
+            {
+                // Format: WHITEBOARD_STATE:base64_image_data
+                string base64Data = message.Substring("WHITEBOARD_STATE:".Length);
+                byte[] imageData = Convert.FromBase64String(base64Data);
+
+                lock (stateLock)
+                {
+                    currentWhiteboardState = imageData;
+                    Console.WriteLine($"[Server] Updated whiteboard state ({imageData.Length} bytes)");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating whiteboard state: {ex.Message}");
             }
         }
 
         static void BroadcastClientCount()
         {
             string countMsg = $"CLIENT_COUNT:{clients.Count}";
-            byte[] countData = Encoding.UTF8.GetBytes(countMsg);
+            BroadcastMessage(countMsg, null);
+        }
 
-            foreach (var client in clients.ToArray()) // ToArray to avoid modification during iteration
+        static void BroadcastMessage(string message, TcpClient sender)
+        {
+            byte[] messageBytes = Encoding.UTF8.GetBytes(message);
+            BroadcastWithLength(messageBytes, sender);
+        }
+
+        static void BroadcastWithLength(byte[] messageBytes, TcpClient sender)
+        {
+            byte[] lengthBytes = BitConverter.GetBytes(messageBytes.Length);
+
+            List<TcpClient> clientSnapshot;
+            lock (clientLock)
             {
-                if (client.Connected)
+                clientSnapshot = new List<TcpClient>(clients);
+            }
+
+            foreach (var client in clientSnapshot)
+            {
+                if (client != sender && client.Connected)
                 {
                     try
                     {
                         NetworkStream stream = client.GetStream();
-                        stream.Write(countData, 0, countData.Length);
+                        // Gửi length trước, sau đó gửi content
+                        stream.Write(lengthBytes, 0, 4);
+                        stream.Write(messageBytes, 0, messageBytes.Length);
                     }
-                    catch
+                    catch (Exception ex)
                     {
+                        Console.WriteLine($"Error broadcasting to client: {ex.Message}");
                         // Remove disconnected client
                         lock (clientLock)
                         {
@@ -189,88 +418,43 @@ namespace WhiteboardServer
             }
         }
 
-        static void BroadcastMessage(string message, TcpClient sender)
-        {
-            byte[] data = Encoding.UTF8.GetBytes(message);
-
-            lock (clientLock)
-            {
-                foreach (var client in clients.ToArray())
-                {
-                    if (client != sender && client.Connected)
-                    {
-                        try
-                        {
-                            NetworkStream stream = client.GetStream();
-                            stream.Write(data, 0, data.Length);
-                        }
-                        catch
-                        {
-                            // Remove disconnected client
-                            clients.Remove(client);
-                        }
-                    }
-                }
-            }
-        }
-
-        static void Broadcast(byte[] data, int length, TcpClient sender)
-        {
-            lock (clientLock)
-            {
-                foreach (var client in clients.ToArray())
-                {
-                    if (client != sender && client.Connected)
-                    {
-                        try
-                        {
-                            NetworkStream stream = client.GetStream();
-                            stream.Write(data, 0, length);
-                        }
-                        catch
-                        {
-                            // Remove disconnected client
-                            clients.Remove(client);
-                        }
-                    }
-                }
-            }
-        }
-
-        static void Relay(TcpClient from, TcpClient to)
+        static void SendAlertEmail(int count)
         {
             try
             {
-                NetworkStream fromStream = from.GetStream();
-            NetworkStream toStream = to.GetStream();
-            byte[] buffer = new byte[4096];
+                string fromEmail = ConfigurationManager.AppSettings["EmailFrom"];
+                string password = ConfigurationManager.AppSettings["EmailPassword"];
+                string smtpServer = ConfigurationManager.AppSettings["SmtpServer"];
+                int smtpPort = int.Parse(ConfigurationManager.AppSettings["SmtpPort"]);
 
-            while (true)
-            {
-                    int bytesRead = fromStream.Read(buffer, 0, buffer.Length);
-                    if (bytesRead == 0) break;
+                var from = new MailAddress(fromEmail, "Whiteboard Server");
 
-                    // Kiểm tra to có còn kết nối
-                    if (to.Connected)
-                    {
-                        toStream.Write(buffer, 0, bytesRead);
-                    }
+                var message = new MailMessage
+                {
+                    From = from,
+                    Subject = "⚠️ Cảnh báo: Số lượng client vượt giới hạn!",
+                    Body = $"Có {count} client đang kết nối đến server."
+                };
+
+                // Danh sách người nhận
+                string[] recipients = ConfigurationManager.AppSettings["EmailTo"].Split(';');
+                foreach (string recipient in recipients)
+                {
+                    message.To.Add(recipient.Trim());
                 }
-            }
 
-            catch (IOException ex)
-            {
-                Console.WriteLine("IO Exception: " + ex.Message);
+                var smtp = new SmtpClient(smtpServer, smtpPort)
+                {
+                    Credentials = new NetworkCredential(fromEmail, password),
+                    EnableSsl = true
+                };
+
+                smtp.Send(message);
+                Console.WriteLine("[+] Cảnh báo gửi email thành công.");
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Exception: " + ex.Message);
-            }
-            finally
-            {
-                from.Close();
-                to.Close();
-                Console.WriteLine("Một client đã ngắt kết nối.");
+                Console.WriteLine("[-] Lỗi gửi email: " + ex.Message);
             }
         }
     }

@@ -7,12 +7,20 @@
       "RelativeMoniker": "D:0:0:{2D4C2F9F-A4C7-4DF9-9A75-4B60129404C8}|WhiteboardClient\\WhiteboardClient.csproj|solutionrelative:whiteboardclient\\mainwindow.xaml.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
+      "AbsoluteMoniker": "D:0:0:{2D4C2F9F-A4C7-4DF9-9A75-4B60129404C8}|WhiteboardClient\\WhiteboardClient.csproj|e:\\uit\\hk3\\[nt106.p22.antt]_network\\lab\\lab06\\whiteboard\\whiteboardsolution\\whiteboardclient\\mainwindow.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}",
+      "RelativeMoniker": "D:0:0:{2D4C2F9F-A4C7-4DF9-9A75-4B60129404C8}|WhiteboardClient\\WhiteboardClient.csproj|solutionrelative:whiteboardclient\\mainwindow.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}"
+    },
+    {
       "AbsoluteMoniker": "D:0:0:{5AD5CF6A-0A16-4026-B9AC-2F1AA207F54E}|WhiteboardServer\\WhiteboardServer.csproj|E:\\UIT\\HK3\\[NT106.P22.ANTT]_Network\\Lab\\Lab06\\Whiteboard\\WhiteboardSolution\\whiteboardserver\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{5AD5CF6A-0A16-4026-B9AC-2F1AA207F54E}|WhiteboardServer\\WhiteboardServer.csproj|solutionrelative:whiteboardserver\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{2D4C2F9F-A4C7-4DF9-9A75-4B60129404C8}|WhiteboardClient\\WhiteboardClient.csproj|e:\\uit\\hk3\\[nt106.p22.antt]_network\\lab\\lab06\\whiteboard\\whiteboardsolution\\whiteboardclient\\mainwindow.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}",
-      "RelativeMoniker": "D:0:0:{2D4C2F9F-A4C7-4DF9-9A75-4B60129404C8}|WhiteboardClient\\WhiteboardClient.csproj|solutionrelative:whiteboardclient\\mainwindow.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}"
+      "AbsoluteMoniker": "D:0:0:{5AD5CF6A-0A16-4026-B9AC-2F1AA207F54E}|WhiteboardServer\\WhiteboardServer.csproj|e:\\uit\\hk3\\[nt106.p22.antt]_network\\lab\\lab06\\whiteboard\\whiteboardsolution\\whiteboardserver\\app.config||{FA3CD31E-987B-443A-9B81-186104E8DAC1}",
+      "RelativeMoniker": "D:0:0:{5AD5CF6A-0A16-4026-B9AC-2F1AA207F54E}|WhiteboardServer\\WhiteboardServer.csproj|solutionrelative:whiteboardserver\\app.config||{FA3CD31E-987B-443A-9B81-186104E8DAC1}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{5AD5CF6A-0A16-4026-B9AC-2F1AA207F54E}|WhiteboardServer\\WhiteboardServer.csproj|e:\\uit\\hk3\\[nt106.p22.antt]_network\\lab\\lab06\\whiteboard\\whiteboardsolution\\whiteboardserver\\packages.config||{FA3CD31E-987B-443A-9B81-186104E8DAC1}",
+      "RelativeMoniker": "D:0:0:{5AD5CF6A-0A16-4026-B9AC-2F1AA207F54E}|WhiteboardServer\\WhiteboardServer.csproj|solutionrelative:whiteboardserver\\packages.config||{FA3CD31E-987B-443A-9B81-186104E8DAC1}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{2D4C2F9F-A4C7-4DF9-9A75-4B60129404C8}|WhiteboardClient\\WhiteboardClient.csproj|e:\\uit\\hk3\\[nt106.p22.antt]_network\\lab\\lab06\\whiteboard\\whiteboardsolution\\whiteboardclient\\app.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}",
@@ -26,15 +34,59 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 4,
+          "SelectedChildIndex": 7,
           "Children": [
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "Program.cs",
+              "DocumentMoniker": "E:\\UIT\\HK3\\[NT106.P22.ANTT]_Network\\Lab\\Lab06\\Whiteboard\\WhiteboardSolution\\WhiteboardServer\\Program.cs",
+              "RelativeDocumentMoniker": "WhiteboardServer\\Program.cs",
+              "ToolTip": "E:\\UIT\\HK3\\[NT106.P22.ANTT]_Network\\Lab\\Lab06\\Whiteboard\\WhiteboardSolution\\WhiteboardServer\\Program.cs",
+              "RelativeToolTip": "WhiteboardServer\\Program.cs",
+              "ViewState": "AgIAAJEAAAAAAAAAAADgv4sAAAAtAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-06-03T01:42:11.108Z",
+              "IsPinned": true,
+              "EditorCaption": ""
+            },
             {
               "$type": "Bookmark",
               "Name": "ST:0:0:{b1e99781-ab81-11d0-b683-00aa00a3ee26}"
             },
             {
+              "$type": "Bookmark",
+              "Name": "ST:131:0:{1fc202d4-d401-403c-9834-5b218574bb67}"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 4,
+              "Title": "packages.config",
+              "DocumentMoniker": "E:\\UIT\\HK3\\[NT106.P22.ANTT]_Network\\Lab\\Lab06\\Whiteboard\\WhiteboardSolution\\WhiteboardServer\\packages.config",
+              "RelativeDocumentMoniker": "WhiteboardServer\\packages.config",
+              "ToolTip": "E:\\UIT\\HK3\\[NT106.P22.ANTT]_Network\\Lab\\Lab06\\Whiteboard\\WhiteboardSolution\\WhiteboardServer\\packages.config",
+              "RelativeToolTip": "WhiteboardServer\\packages.config",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000601|",
+              "WhenOpened": "2025-06-16T12:43:55.354Z",
+              "EditorCaption": ""
+            },
+            {
               "$type": "Document",
               "DocumentIndex": 3,
+              "Title": "App.config",
+              "DocumentMoniker": "E:\\UIT\\HK3\\[NT106.P22.ANTT]_Network\\Lab\\Lab06\\Whiteboard\\WhiteboardSolution\\WhiteboardServer\\App.config",
+              "RelativeDocumentMoniker": "WhiteboardServer\\App.config",
+              "ToolTip": "E:\\UIT\\HK3\\[NT106.P22.ANTT]_Network\\Lab\\Lab06\\Whiteboard\\WhiteboardSolution\\WhiteboardServer\\App.config",
+              "RelativeToolTip": "WhiteboardServer\\App.config",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAoAAAAjAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000601|",
+              "WhenOpened": "2025-06-16T12:41:03.973Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 5,
               "Title": "App.xaml",
               "DocumentMoniker": "E:\\UIT\\HK3\\[NT106.P22.ANTT]_Network\\Lab\\Lab06\\Whiteboard\\WhiteboardSolution\\WhiteboardClient\\App.xaml",
               "RelativeDocumentMoniker": "WhiteboardClient\\App.xaml",
@@ -47,19 +99,6 @@
             {
               "$type": "Document",
               "DocumentIndex": 1,
-              "Title": "Program.cs",
-              "DocumentMoniker": "E:\\UIT\\HK3\\[NT106.P22.ANTT]_Network\\Lab\\Lab06\\Whiteboard\\WhiteboardSolution\\WhiteboardServer\\Program.cs",
-              "RelativeDocumentMoniker": "WhiteboardServer\\Program.cs",
-              "ToolTip": "E:\\UIT\\HK3\\[NT106.P22.ANTT]_Network\\Lab\\Lab06\\Whiteboard\\WhiteboardSolution\\WhiteboardServer\\Program.cs",
-              "RelativeToolTip": "WhiteboardServer\\Program.cs",
-              "ViewState": "AgIAAIAAAAAAAAAAAAAAwJgAAAA9AAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-06-03T01:42:11.108Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 2,
               "Title": "MainWindow.xaml",
               "DocumentMoniker": "E:\\UIT\\HK3\\[NT106.P22.ANTT]_Network\\Lab\\Lab06\\Whiteboard\\WhiteboardSolution\\WhiteboardClient\\MainWindow.xaml",
               "RelativeDocumentMoniker": "WhiteboardClient\\MainWindow.xaml",
@@ -77,7 +116,7 @@
               "RelativeDocumentMoniker": "WhiteboardClient\\MainWindow.xaml.cs",
               "ToolTip": "E:\\UIT\\HK3\\[NT106.P22.ANTT]_Network\\Lab\\Lab06\\Whiteboard\\WhiteboardSolution\\WhiteboardClient\\MainWindow.xaml.cs",
               "RelativeToolTip": "WhiteboardClient\\MainWindow.xaml.cs",
-              "ViewState": "AgIAAEwBAAAAAAAAAAAAwGUBAABEAAAAAAAAAA==",
+              "ViewState": "AgIAAPICAAAAAAAAAAAQwBYDAAAJAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2025-06-03T01:40:46.931Z",
               "EditorCaption": ""

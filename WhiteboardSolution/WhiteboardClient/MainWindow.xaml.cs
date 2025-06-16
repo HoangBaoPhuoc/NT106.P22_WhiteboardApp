@@ -11,13 +11,15 @@ using System.Windows.Navigation;
 using System.Windows.Shapes;
 using System.Threading;
 using System.IO;
+using System.Windows.Threading;
+using WhiteboardClient;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using System.Net;
+
 
 namespace WhiteboardClient
 {
-    /// <summary>
-    /// Interaction logic for MainWindow.xaml
-    /// </summary>
-    /// 
 
     public partial class MainWindow : Window
     {
@@ -25,7 +27,6 @@ namespace WhiteboardClient
         NetworkStream stream;
         bool drawing = false;
         Point lastPoint;
-        private Thread receiveThread;
         private Brush currentBrush = Brushes.Black;
         private double lineThickness = 1;
         private int clientCount = 0;
@@ -35,56 +36,78 @@ namespace WhiteboardClient
         private double previousThickness;
         private Ellipse eraserPreview;
         private bool isSyncing = false;
+        private System.Timers.Timer stateUpdateTimer;
+        private bool pendingStateUpdate = false;
+        private const int MaxImageSize = 20_000_000;
+        private const int StateUpdateDelayMs = 2000; // 2 giây
+        private const double CANVAS_MARGIN = 25;
+
+        // Layer management
+        private Canvas imageLayer;
+        private Canvas drawingLayer;
 
         public MainWindow()
         {
             InitializeComponent();
+            InitializeLayers();
             StatusLabel.Content = "Click Connect to join whiteboard";
+
+            // Timer để gửi state update định kỳ
+            stateUpdateTimer = new System.Timers.Timer(StateUpdateDelayMs);
+            stateUpdateTimer.Elapsed += (s, e) =>
+            {
+                if (pendingStateUpdate && client?.Connected == true)
+                {
+                    pendingStateUpdate = false;
+                    Dispatcher.Invoke(() => SendWhiteboardStateUpdate());
+                }
+            };
+            stateUpdateTimer.Start();
+        }
+        public class Stroke
+        {
+            public double X1 { get; set; }
+            public double Y1 { get; set; }
+            public double X2 { get; set; }
+            public double Y2 { get; set; }
+            public string Color { get; set; }
+            public double Thickness { get; set; }
         }
 
-        private byte[] CaptureWhiteboard()
+        private void InitializeLayers()
         {
-            try
-            {
-                // Tạo bitmap từ canvas
-                RenderTargetBitmap renderBitmap = new RenderTargetBitmap(
-                    (int)DrawCanvas.ActualWidth,
-                    (int)DrawCanvas.ActualHeight,
-                    96d, 96d, PixelFormats.Pbgra32);
-                renderBitmap.Render(DrawCanvas);
+            imageLayer = new Canvas();
+            drawingLayer = new Canvas();
 
-                // Chuyển thành PNG
-                PngBitmapEncoder encoder = new PngBitmapEncoder();
-                encoder.Frames.Add(BitmapFrame.Create(renderBitmap));
+            DrawCanvas.Children.Clear();
+            DrawCanvas.Children.Add(imageLayer);
+            DrawCanvas.Children.Add(drawingLayer);
 
-                // Chuyển thành byte array
-                using (MemoryStream ms = new MemoryStream())
-                {
-                    encoder.Save(ms);
-                    return ms.ToArray();
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error capturing whiteboard: {ex.Message}");
-                return null;
-            }
+            Canvas.SetZIndex(imageLayer, 0);
+            Canvas.SetZIndex(drawingLayer, 1);
         }
 
         private void ConnectToServer()
         {
-            try {
-             // Thay "127.0.0.1" bằng địa chỉ IP thực của máy chạy server
-            client = new TcpClient("127.0.0.1", 5000);
-            stream = client.GetStream();
-            StartReceiving();
+            try
+            {
+                client = new TcpClient("127.0.0.1", 5000);
+                stream = client.GetStream();
 
-                StatusLabel.Content = "Connected to server";
+                // Reset UI state
+                imageLayer.Children.Clear();
+                drawingLayer.Children.Clear();
+
+                // Start receiving messages
+                StartReceiving();
+
+                StatusLabel.Content = "Connected to server, synchronizing...";
                 ConnectButton.Content = "Connected";
+                ConnectButton.IsEnabled = false;
                 DisconnectButton.IsEnabled = true;
                 EndButton.IsEnabled = true;
                 EraserButton.IsEnabled = true;
-                ColorPicker.IsEnabled = true; 
+                ColorPicker.IsEnabled = true;
                 ThicknessPicker.IsEnabled = true;
                 DrawCanvas.IsEnabled = true;
             }
@@ -100,6 +123,439 @@ namespace WhiteboardClient
             }
         }
 
+        private async void StartReceiving()
+        {
+            _cancellationTokenSource = new CancellationTokenSource();
+
+            try
+            {
+                while (client?.Connected == true && !_cancellationTokenSource.Token.IsCancellationRequested)
+                {
+                    byte[] lengthBytes = new byte[4];
+                    int lengthRead = 0;
+                    while (lengthRead < 4)
+                    {
+                        int read = await stream.ReadAsync(lengthBytes, lengthRead, 4 - lengthRead, _cancellationTokenSource.Token);
+                        if (read == 0) break;
+                        lengthRead += read;
+                    }
+
+                    if (lengthRead < 4) break;
+
+                    int messageLength = BitConverter.ToInt32(lengthBytes, 0);
+                    if (messageLength <= 0 || messageLength > 10_000_000) break;
+
+                    byte[] messageBytes = new byte[messageLength];
+                    int totalRead = 0;
+                    while (totalRead < messageLength)
+                    {
+                        int read = await stream.ReadAsync(messageBytes, totalRead, messageLength - totalRead, _cancellationTokenSource.Token);
+                        if (read == 0) break;
+                        totalRead += read;
+                    }
+
+                    if (totalRead < messageLength) break;
+
+                    string message = Encoding.UTF8.GetString(messageBytes);
+                    await Dispatcher.InvokeAsync(() => ProcessMessage(message));
+                }
+            }
+            catch (Exception ex)
+            {
+                await Dispatcher.InvokeAsync(() =>
+                {
+                    StatusLabel.Content = $"Connection lost: {ex.Message}";
+                    ClientCountLabel.Content = "Clients: 0";
+                });
+            }
+        }
+
+        private void ProcessMessage(string message)
+        {
+            try
+            {
+                // Xử lý tín hiệu đồng bộ
+                if (message == "SYNC_START")
+                {
+                    isSyncing = true;
+                    StatusLabel.Content = "Receiving whiteboard state...";
+                    // Clear canvas trước khi nhận state mới
+                    imageLayer.Children.Clear();
+                    drawingLayer.Children.Clear();
+                    return;
+                }
+                else if (message == "SYNC_END")
+                {
+                    isSyncing = false;
+                    StatusLabel.Content = "Whiteboard synchronized successfully";
+                    return;
+                }
+
+                // Xử lý JSON messages (full_state và stroke)
+                if (message.StartsWith("{"))
+                {
+                    try
+                    {
+                        JObject json = JObject.Parse(message);
+                        string type = json["type"]?.ToString();
+
+                        if (type == "full_state")
+                        {
+                            var strokes = json["data"]?.ToObject<List<Stroke>>();
+                            if (strokes != null)
+                            {
+                                DrawStrokes(strokes);
+                            }
+                            return;
+                        }
+                        else if (type == "stroke")
+                        {
+                            var stroke = json["data"]?.ToObject<Stroke>();
+                            if (stroke != null)
+                            {
+                                DrawStroke(stroke);
+                            }
+                            return;
+                        }
+                    }
+                    catch (JsonException)
+                    {
+                        // Không phải JSON, tiếp tục xử lý như message thường
+                    }
+                }
+
+                // Xử lý các message khác
+                if (message.StartsWith("INSERT_IMAGE:"))
+                {
+                    string base64Image = message.Substring("INSERT_IMAGE:".Length);
+                    DrawImageFromBase64(base64Image);
+                    return;
+                }
+                else if (message.StartsWith("CLIENT_COUNT:"))
+                {
+                    string countStr = message.Substring("CLIENT_COUNT:".Length);
+                    if (int.TryParse(countStr, out int count))
+                    {
+                        clientCount = count;
+                        ClientCountLabel.Content = $"Clients: {clientCount}";
+                        if (!isSyncing)
+                        {
+                            StatusLabel.Content = $"Connected - {clientCount} clients";
+                        }
+                    }
+                    return;
+                }
+                else if (message == "END_SESSION")
+                {
+                    MessageBox.Show("Session ended by another client.", "Session Ended",
+                        MessageBoxButton.OK, MessageBoxImage.Information);
+                    SaveCanvasAsImage();
+                    Application.Current.Shutdown();
+                    return;
+                }
+                else if (IsDrawingData(message))
+                {
+                    DrawLineFromMessage(message);
+                    return;
+                }
+
+                Console.WriteLine($"Unknown message: {message.Substring(0, Math.Min(50, message.Length))}");
+            }
+            catch (Exception ex)
+            {
+                StatusLabel.Content = $"Error processing message: {ex.Message}";
+            }
+        }
+
+        private void DrawStrokes(List<Stroke> strokes)
+        {
+            foreach (var stroke in strokes)
+            {
+                DrawStroke(stroke);
+            }
+        }
+
+        private void DrawStroke(Stroke stroke)
+        {
+            try
+            {
+                Line line = new Line
+                {
+                    X1 = stroke.X1,
+                    Y1 = stroke.Y1,
+                    X2 = stroke.X2,
+                    Y2 = stroke.Y2,
+                    Stroke = (Brush)new BrushConverter().ConvertFromString(stroke.Color),
+                    StrokeThickness = stroke.Thickness,
+                    StrokeStartLineCap = PenLineCap.Round,
+                    StrokeEndLineCap = PenLineCap.Round
+                };
+
+                drawingLayer.Children.Add(line);
+            }
+            catch (Exception ex)
+            {
+                StatusLabel.Content = $"Error drawing stroke: {ex.Message}";
+            }
+        }
+
+        private bool IsDrawingData(string message)
+        {
+            if (!message.Contains(",")) return false;
+
+            string[] parts = message.Split(',');
+            if (parts.Length != 6) return false;
+
+            return double.TryParse(parts[0], out _) &&
+                   double.TryParse(parts[1], out _) &&
+                   double.TryParse(parts[2], out _) &&
+                   double.TryParse(parts[3], out _) &&
+                   double.TryParse(parts[5], out _);
+        }
+
+        private void DrawLineFromMessage(string message)
+        {
+            try
+            {
+                string[] parts = message.Split(',');
+                if (parts.Length == 6)
+                {
+                    double x1 = double.Parse(parts[0]);
+                    double y1 = double.Parse(parts[1]);
+                    double x2 = double.Parse(parts[2]);
+                    double y2 = double.Parse(parts[3]);
+                    string colorStr = parts[4];
+                    double thickness = double.Parse(parts[5]);
+
+                    Brush brush = (Brush)new BrushConverter().ConvertFromString(colorStr);
+
+                    Line line = new Line
+                    {
+                        X1 = x1,
+                        Y1 = y1,
+                        X2 = x2,
+                        Y2 = y2,
+                        Stroke = brush,
+                        StrokeThickness = thickness,
+                        StrokeStartLineCap = PenLineCap.Round,
+                        StrokeEndLineCap = PenLineCap.Round
+                    };
+
+                    drawingLayer.Children.Add(line);
+                }
+            }
+            catch (Exception ex)
+            {
+                StatusLabel.Content = $"Error drawing line: {ex.Message}";
+            }
+        }
+
+        private void DrawLine(double x1, double y1, double x2, double y2)
+        {
+            Line line = new Line
+            {
+                X1 = x1,
+                Y1 = y1,
+                X2 = x2,
+                Y2 = y2,
+                Stroke = currentBrush,
+                StrokeThickness = lineThickness,
+                StrokeStartLineCap = PenLineCap.Round,
+                StrokeEndLineCap = PenLineCap.Round
+            };
+            drawingLayer.Children.Add(line);
+        }
+
+        private void SendLine(Point from, Point to)
+        {
+            if (stream == null || !client.Connected)
+            {
+                StatusLabel.Content = "Not connected";
+                return;
+            }
+
+            try
+            {
+                string colorStr = ((SolidColorBrush)currentBrush).Color.ToString();
+                string message = $"{from.X},{from.Y},{to.X},{to.Y},{colorStr},{lineThickness}";
+
+                byte[] messageBytes = Encoding.UTF8.GetBytes(message);
+                byte[] lengthBytes = BitConverter.GetBytes(messageBytes.Length);
+
+                // Gửi length + content
+                stream.Write(lengthBytes, 0, 4);
+                stream.Write(messageBytes, 0, messageBytes.Length);
+
+                // Schedule state update
+                pendingStateUpdate = true;
+            }
+            catch (Exception ex)
+            {
+                StatusLabel.Content = "Send error: " + ex.Message;
+            }
+        }
+
+        private void SendWhiteboardStateUpdate()
+        {
+            try
+            {
+                if (stream == null || !client.Connected) return;
+
+                byte[] imageData = CaptureWhiteboard();
+                if (imageData == null) return;
+
+                string base64Image = Convert.ToBase64String(imageData);
+                string message = $"WHITEBOARD_STATE:{base64Image}";
+
+                byte[] messageBytes = Encoding.UTF8.GetBytes(message);
+                byte[] lengthBytes = BitConverter.GetBytes(messageBytes.Length);
+
+                stream.Write(lengthBytes, 0, 4);
+                stream.Write(messageBytes, 0, messageBytes.Length);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error sending state update: {ex.Message}");
+            }
+        }
+
+        private byte[] CaptureWhiteboard()
+        {
+            try
+            {
+                RenderTargetBitmap renderBitmap = new RenderTargetBitmap(
+                    (int)DrawCanvas.ActualWidth,
+                    (int)DrawCanvas.ActualHeight,
+                    96d, 96d, PixelFormats.Pbgra32);
+                renderBitmap.Render(DrawCanvas);
+
+                PngBitmapEncoder encoder = new PngBitmapEncoder();
+                encoder.Frames.Add(BitmapFrame.Create(renderBitmap));
+
+                using (MemoryStream ms = new MemoryStream())
+                {
+                    encoder.Save(ms);
+                    return ms.ToArray();
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error capturing whiteboard: {ex.Message}");
+                return null;
+            }
+        }
+
+        // Mouse Events
+        private void Canvas_MouseDown(object sender, MouseButtonEventArgs e)
+        {
+            drawing = true;
+            lastPoint = e.GetPosition(DrawCanvas);
+        }
+
+        private void Canvas_MouseMove(object sender, MouseEventArgs e)
+        {
+            Point currentPoint = e.GetPosition(DrawCanvas);
+
+            // Kiểm tra bounds
+            currentPoint.X = Math.Max(CANVAS_MARGIN, Math.Min(currentPoint.X, DrawCanvas.ActualWidth - CANVAS_MARGIN));
+            currentPoint.Y = Math.Max(CANVAS_MARGIN, Math.Min(currentPoint.Y, DrawCanvas.ActualHeight - CANVAS_MARGIN));
+
+            bool isInBounds = currentPoint.X >= CANVAS_MARGIN &&
+                             currentPoint.X <= DrawCanvas.ActualWidth - CANVAS_MARGIN &&
+                             currentPoint.Y >= CANVAS_MARGIN &&
+                             currentPoint.Y <= DrawCanvas.ActualHeight - CANVAS_MARGIN;
+
+            if (isErasing)
+            {
+                if (isInBounds)
+                {
+                    UpdateEraserPreview(currentPoint);
+                    if (drawing)
+                    {
+                        DrawLine(lastPoint.X, lastPoint.Y, currentPoint.X, currentPoint.Y);
+                        SendLine(lastPoint, currentPoint);
+                    }
+                }
+                else
+                {
+                    if (eraserPreview != null)
+                    {
+                        drawingLayer.Children.Remove(eraserPreview);
+                        eraserPreview = null;
+                    }
+                    drawing = false;
+                }
+            }
+            else if (drawing && isInBounds)
+            {
+                DrawLine(lastPoint.X, lastPoint.Y, currentPoint.X, currentPoint.Y);
+                SendLine(lastPoint, currentPoint);
+            }
+
+            if (isInBounds)
+            {
+                lastPoint = currentPoint;
+            }
+        }
+
+        private void Canvas_MouseUp(object sender, MouseButtonEventArgs e)
+        {
+            drawing = false;
+        }
+
+        private void Canvas_MouseLeave(object sender, MouseEventArgs e)
+        {
+            drawing = false;
+
+            if (eraserPreview != null)
+            {
+                drawingLayer.Children.Remove(eraserPreview);
+                eraserPreview = null;
+            }
+
+            if (isErasing)
+            {
+                StatusLabel.Content = "Eraser outside drawing area";
+            }
+        }
+
+        private void UpdateEraserPreview(Point position)
+        {
+            if (!isErasing) return;
+
+            position.X = Math.Max(CANVAS_MARGIN, Math.Min(position.X, DrawCanvas.ActualWidth - CANVAS_MARGIN));
+            position.Y = Math.Max(CANVAS_MARGIN, Math.Min(position.Y, DrawCanvas.ActualHeight - CANVAS_MARGIN));
+
+            if (eraserPreview == null)
+            {
+                eraserPreview = new Ellipse
+                {
+                    Stroke = Brushes.Gray,
+                    StrokeThickness = 1,
+                    Fill = new SolidColorBrush(Color.FromArgb(50, 200, 200, 200))
+                };
+                drawingLayer.Children.Add(eraserPreview);
+            }
+
+            double size = lineThickness;
+            eraserPreview.Width = size;
+            eraserPreview.Height = size;
+
+            Canvas.SetLeft(eraserPreview, position.X - size / 2);
+            Canvas.SetTop(eraserPreview, position.Y - size / 2);
+            Canvas.SetZIndex(eraserPreview, 9999);
+            eraserPreview.Opacity = 0.5;
+        }
+
+        // Button Events
+        private void ConnectButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (client == null || !client.Connected)
+            {
+                ConnectToServer();
+            }
+        }
+
         private void Disconnect_Click(object sender, RoutedEventArgs e)
         {
             DisconnectFromServer();
@@ -109,16 +565,19 @@ namespace WhiteboardClient
         {
             try
             {
-                // Send disconnect message to server
                 if (stream != null && client?.Connected == true)
                 {
                     string disconnectMsg = "DISCONNECT";
-                    byte[] buffer = Encoding.UTF8.GetBytes(disconnectMsg);
-                    stream.Write(buffer, 0, buffer.Length);
+                    byte[] messageBytes = Encoding.UTF8.GetBytes(disconnectMsg);
+                    byte[] lengthBytes = BitConverter.GetBytes(messageBytes.Length);
+
+                    stream.Write(lengthBytes, 0, 4);
+                    stream.Write(messageBytes, 0, messageBytes.Length);
                 }
             }
             catch { }
-            _cancellationTokenSource.Cancel();
+
+            _cancellationTokenSource?.Cancel();
 
             if (stream != null)
             {
@@ -139,6 +598,7 @@ namespace WhiteboardClient
             DisconnectButton.IsEnabled = false;
             EraserButton.IsEnabled = false;
             DrawCanvas.IsEnabled = false;
+
             if (isErasing)
             {
                 isErasing = false;
@@ -146,33 +606,23 @@ namespace WhiteboardClient
                 lineThickness = previousThickness;
                 EraserButton.Content = "Eraser";
             }
-
-        }
-
-        private void ConnectButton_Click(object sender, RoutedEventArgs e)
-        {
-            if (client == null || !client.Connected)
-            {
-                ConnectToServer();
-            }
         }
 
         private void EndButton_Click(object sender, RoutedEventArgs e)
         {
             try
             {
-                // Send END message to server to notify all clients
                 if (stream != null && client?.Connected == true)
                 {
                     string endMsg = "END_SESSION";
-                    byte[] buffer = Encoding.UTF8.GetBytes(endMsg);
-                    stream.Write(buffer, 0, buffer.Length);
+                    byte[] messageBytes = Encoding.UTF8.GetBytes(endMsg);
+                    byte[] lengthBytes = BitConverter.GetBytes(messageBytes.Length);
+
+                    stream.Write(lengthBytes, 0, 4);
+                    stream.Write(messageBytes, 0, messageBytes.Length);
                 }
 
-                // Save canvas as image
                 SaveCanvasAsImage();
-
-                // Close application
                 Application.Current.Shutdown();
             }
             catch (Exception ex)
@@ -181,24 +631,252 @@ namespace WhiteboardClient
             }
         }
 
+        private void EraserButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (!isErasing)
+            {
+                previousBrush = currentBrush;
+                previousThickness = lineThickness;
+                currentBrush = new SolidColorBrush(Colors.White);
+                lineThickness = double.Parse(((ComboBoxItem)ThicknessPicker.SelectedItem).Tag.ToString()) * 10;
+                EraserButton.Content = "Drawing";
+                isErasing = true;
+
+                ColorPicker.IsEnabled = false;
+                ThicknessPicker.IsEnabled = true;
+
+                UpdateEraserPreview(Mouse.GetPosition(DrawCanvas));
+            }
+            else
+            {
+                currentBrush = previousBrush;
+                lineThickness = previousThickness;
+                EraserButton.Content = "Eraser";
+                isErasing = false;
+
+                ColorPicker.IsEnabled = true;
+                ThicknessPicker.IsEnabled = true;
+
+                if (eraserPreview != null)
+                {
+                    drawingLayer.Children.Remove(eraserPreview);
+                    eraserPreview = null;
+                }
+            }
+
+            StatusLabel.Content = isErasing ? "Erasing" : "Drawing";
+        }
+
+        private void btnInsertImage_Click(object sender, RoutedEventArgs e)
+        {
+            string url = txtImageUrl.Text.Trim();
+            if (!string.IsNullOrEmpty(url))
+            {
+                // Trường hợp có URL → tải từ internet
+                try
+                {
+                    WebClient webClient = new WebClient();
+                    byte[] imageBytes = webClient.DownloadData(url);
+
+                    using (MemoryStream ms = new MemoryStream(imageBytes))
+                    {
+                        BitmapImage bitmap = new BitmapImage();
+                        bitmap.BeginInit();
+                        bitmap.CacheOption = BitmapCacheOption.OnLoad;
+                        bitmap.StreamSource = ms;
+                        bitmap.EndInit();
+                        bitmap.Freeze();
+
+                        DrawImage(bitmap);
+                        SendImageToServer(bitmap);
+                        StatusLabel.Content = "Image inserted from URL.";
+                    }
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show("Failed to load image from URL.\n" + ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+            else
+            {
+                var openFileDialog = new Microsoft.Win32.OpenFileDialog
+            {
+                Filter = "Image files (*.png;*.jpeg;*.jpg;*.bmp)|*.png;*.jpeg;*.jpg;*.bmp|All files (*.*)|*.*",
+                Title = "Select an image"
+            };
+
+            if (openFileDialog.ShowDialog() == true)
+            {
+                try
+                {
+                    if (stream == null || !client?.Connected == true)
+                    {
+                        MessageBox.Show("No connection to server", "Error",
+                            MessageBoxButton.OK, MessageBoxImage.Error);
+                        return;
+                    }
+
+                    var fileInfo = new FileInfo(openFileDialog.FileName);
+                    if (fileInfo.Length > MaxImageSize)
+                    {
+                        MessageBox.Show($"Image size too large (max {MaxImageSize / 1024 / 1024}MB)",
+                            "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                        return;
+                    }
+
+                    // Convert image to base64
+                    byte[] imageBytes = File.ReadAllBytes(openFileDialog.FileName);
+                    string base64Image = Convert.ToBase64String(imageBytes);
+
+                    // Send to server
+                    string message = $"INSERT_IMAGE:{base64Image}";
+                    byte[] messageBytes = Encoding.UTF8.GetBytes(message);
+                    byte[] lengthBytes = BitConverter.GetBytes(messageBytes.Length);
+
+                    stream.Write(lengthBytes, 0, 4);
+                    stream.Write(messageBytes, 0, messageBytes.Length);
+
+                    // Draw locally
+                    DrawImageFromBase64(base64Image);
+
+                    // Schedule state update
+                    pendingStateUpdate = true;
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Error inserting image: {ex.Message}", "Error",
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+                }
+            }
+        }
+
+        private void DrawImage(BitmapImage bitmap)
+        {
+            double canvasWidth = DrawCanvas.ActualWidth;
+            double canvasHeight = DrawCanvas.ActualHeight;
+
+            double imgWidth = bitmap.PixelWidth;
+            double imgHeight = bitmap.PixelHeight;
+
+            double scale = 1.0;
+
+            // Tính tỉ lệ để ảnh vừa trong canvas
+            if (imgWidth > canvasWidth || imgHeight > canvasHeight)
+            {
+                double scaleX = canvasWidth / imgWidth;
+                double scaleY = canvasHeight / imgHeight;
+                scale = Math.Min(scaleX, scaleY) * 0.8; // 80% kích thước canvas
+            }
+
+            double displayWidth = imgWidth * scale;
+            double displayHeight = imgHeight * scale;
+
+            // Tạo đối tượng Image
+            Image image = new Image
+            {
+                Source = bitmap,
+                Width = displayWidth,
+                Height = displayHeight
+            };
+
+            // Căn giữa ảnh trên canvas
+            double left = (canvasWidth - displayWidth) / 2;
+            double top = (canvasHeight - displayHeight) / 2;
+
+            Canvas.SetLeft(image, left);
+            Canvas.SetTop(image, top);
+
+            DrawCanvas.Children.Add(image);
+        }
+
+        private void SendImageToServer(BitmapImage bitmap)
+        {
+            if (stream == null || !client?.Connected == true)
+            {
+                StatusLabel.Content = "Not connected";
+                return;
+            }
+            try
+            {
+                using (MemoryStream ms = new MemoryStream())
+                {
+                    PngBitmapEncoder encoder = new PngBitmapEncoder();
+                    encoder.Frames.Add(BitmapFrame.Create(bitmap));
+                    encoder.Save(ms);
+                    byte[] imageBytes = ms.ToArray();
+                    if (imageBytes.Length > MaxImageSize)
+                    {
+                        MessageBox.Show($"Image size too large (max {MaxImageSize / 1024 / 1024}MB)",
+                            "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                        return;
+                    }
+                    string base64Image = Convert.ToBase64String(imageBytes);
+                    string message = $"INSERT_IMAGE:{base64Image}";
+                    byte[] messageBytes = Encoding.UTF8.GetBytes(message);
+                    byte[] lengthBytes = BitConverter.GetBytes(messageBytes.Length);
+                    stream.Write(lengthBytes, 0, 4);
+                    stream.Write(messageBytes, 0, messageBytes.Length);
+                    // Schedule state update
+                    pendingStateUpdate = true;
+                }
+            }
+            catch (Exception ex)
+            {
+                StatusLabel.Content = $"Error sending image: {ex.Message}";
+            }
+        }
+        private void DrawImageFromBase64(string base64String)
+        {
+            try
+            {
+                byte[] imageBytes = Convert.FromBase64String(base64String);
+                using (MemoryStream ms = new MemoryStream(imageBytes))
+                {
+                    BitmapImage bitmap = new BitmapImage();
+                    bitmap.BeginInit();
+                    bitmap.CacheOption = BitmapCacheOption.OnLoad;
+                    bitmap.StreamSource = ms;
+                    bitmap.EndInit();
+
+                    Image image = new Image
+                    {
+                        Source = bitmap,
+                        Width = 200,
+                        Height = 200,
+                        Stretch = Stretch.Uniform
+                    };
+
+                    // Center the image
+                    double left = (DrawCanvas.ActualWidth - image.Width) / 2;
+                    double top = (DrawCanvas.ActualHeight - image.Height) / 2;
+
+                    Canvas.SetLeft(image, left);
+                    Canvas.SetTop(image, top);
+
+                    imageLayer.Children.Add(image);
+                }
+            }
+            catch (Exception ex)
+            {
+                StatusLabel.Content = $"Error drawing image: {ex.Message}";
+            }
+        }
+
         private void SaveCanvasAsImage()
         {
             try
             {
-                // Create a render target bitmap
                 RenderTargetBitmap renderBitmap = new RenderTargetBitmap(
                     (int)DrawCanvas.ActualWidth,
                     (int)DrawCanvas.ActualHeight,
                     96d, 96d, PixelFormats.Pbgra32);
 
-                // Render the canvas
                 renderBitmap.Render(DrawCanvas);
 
-                // Create PNG encoder
                 PngBitmapEncoder encoder = new PngBitmapEncoder();
                 encoder.Frames.Add(BitmapFrame.Create(renderBitmap));
 
-                // Save to file
                 string fileName = $"Whiteboard_{DateTime.Now:yyyyMMdd_HHmmss}.png";
                 string filePath = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), fileName);
 
@@ -217,351 +895,7 @@ namespace WhiteboardClient
             }
         }
 
-        private void DrawLine(double x1, double y1, double x2, double y2)
-        {
-            Line line = new Line
-            {
-                X1 = x1,
-                Y1 = y1,
-                X2 = x2,
-                Y2 = y2,
-                Stroke = currentBrush,
-                StrokeThickness = lineThickness
-            };
-            DrawCanvas.Children.Add(line);
-        }
-
-        private void Canvas_MouseDown(object sender, MouseButtonEventArgs e)
-        {
-            drawing = true;
-            lastPoint = e.GetPosition(DrawCanvas);
-        }
-
-        private void Canvas_MouseLeave(object sender, MouseEventArgs e)
-        {
-            if (eraserPreview != null)
-            {
-                DrawCanvas.Children.Remove(eraserPreview);
-                eraserPreview = null;
-            }
-        }
-
-
-        private void Canvas_MouseMove(object sender, MouseEventArgs e)
-        {
-            
-            Point currentPoint = e.GetPosition(DrawCanvas);
-
-            if (isErasing)
-            {
-                UpdateEraserPreview(currentPoint);
-            }
-
-            if (!drawing) return;
-            DrawLine(lastPoint.X, lastPoint.Y, currentPoint.X, currentPoint.Y);
-            SendLine(lastPoint, currentPoint);
-            lastPoint = currentPoint;
-        }
-
-        private void Canvas_MouseUp(object sender, MouseButtonEventArgs e)
-        {
-            drawing = false;
-        }
-
-        private void StartReceiving()
-        {
-            _cancellationTokenSource = new CancellationTokenSource(); // Reset token source
-
-            receiveThread = new Thread(() =>
-            {
-                byte[] buffer = new byte[4096];
-
-                while (client?.Connected == true && !_cancellationTokenSource.Token.IsCancellationRequested)
-                {
-                    try
-                    {
-                        int bytesRead = stream.Read(buffer, 0, buffer.Length);
-                        if (bytesRead == 0) break;
-
-                        string msg = Encoding.UTF8.GetString(buffer, 0, bytesRead);
-
-                        Application.Current.Dispatcher.Invoke(() =>
-                        {
-                            ProcessMessage(msg);
-                        });
-                    }
-                    catch
-                    {
-                        break;
-                    }
-                }
-
-                Application.Current.Dispatcher.Invoke(() =>
-                {
-                    StatusLabel.Content = "Connection lost";
-                    ClientCountLabel.Content = "Clients: 0";
-                });
-            });
-
-            receiveThread.IsBackground = true;
-            receiveThread.Start();
-        }
-
-        private void ProcessMessage(string msg)
-        {
-            try
-            {
-                if (msg == "REQUEST_STATE")
-                {
-                    byte[] imageData = CaptureWhiteboard();
-                    if (imageData != null)
-                    {
-                        // Gửi kích thước trước
-                        byte[] sizeBytes = BitConverter.GetBytes(imageData.Length);
-                        stream.Write(sizeBytes, 0, sizeBytes.Length);
-                        Thread.Sleep(100);
-
-                        // Gửi dữ liệu ảnh
-                        stream.Write(imageData, 0, imageData.Length);
-                    }
-                    return;
-                }
-                // ..
-                if (msg == "START_SYNC")
-                {
-                    isSyncing = true;
-                    DrawCanvas.Children.Clear();
-                    ReceiveWhiteboardImage();
-                    return;
-                }
-
-                if (msg == "END_SYNC")
-                {
-                    isSyncing = false;
-                    return;
-                }
-                if (msg.StartsWith("CLIENT_COUNT:"))
-                {
-                    string countStr = msg.Substring("CLIENT_COUNT:".Length);
-                    if (int.TryParse(countStr, out int count))
-                    {
-                        clientCount = count;
-                        ClientCountLabel.Content = $"Clients: {clientCount}";
-                        StatusLabel.Content = isSyncing ?
-                                           "Synchronizing whiteboard..." :
-                                           $"Client count updated: {clientCount}";
-                    }
-                }
-                else if (msg == "END_SESSION")
-                {
-                    // Another client ended the session
-                    MessageBox.Show("Session ended by another client.", "Session Ended",
-                        MessageBoxButton.OK, MessageBoxImage.Information);
-                    SaveCanvasAsImage();
-                    Application.Current.Shutdown();
-                }
-                else
-                {
-                    // Drawing data
-                    DrawLineFromMessage(msg);
-                }
-            }
-            catch (Exception ex)
-            {
-                StatusLabel.Content = $"Error processing message: {ex.Message}";
-            }
-        }
-
-        private void ReceiveWhiteboardImage()
-        {
-            try
-            {
-                // Nhận kích thước ảnh
-                byte[] sizeBytes = new byte[4];
-                stream.Read(sizeBytes, 0, 4);
-                int imageSize = BitConverter.ToInt32(sizeBytes, 0);
-
-                // Nhận dữ liệu ảnh
-                byte[] imageData = new byte[imageSize];
-                int bytesRead = 0;
-                while (bytesRead < imageSize)
-                {
-                    bytesRead += stream.Read(imageData, bytesRead, imageSize - bytesRead);
-                }
-
-                // Chuyển đổi thành ảnh và hiển thị
-                using (MemoryStream ms = new MemoryStream(imageData))
-                {
-                    BitmapImage bmp = new BitmapImage();
-                    bmp.BeginInit();
-                    bmp.CacheOption = BitmapCacheOption.OnLoad;
-                    bmp.StreamSource = ms;
-                    bmp.EndInit();
-
-                    Image image = new Image
-                    {
-                        Source = bmp,
-                        Stretch = Stretch.None
-                    };
-
-                    DrawCanvas.Children.Add(image);
-                }
-            }
-            catch (Exception ex)
-            {
-                StatusLabel.Content = $"Error receiving image: {ex.Message}";
-            }
-        }
-
-        static void UpdateCurrentState(TcpClient sender)
-        {
-            try
-            {
-                NetworkStream stream = sender.GetStream();
-                // Yêu cầu client gửi trạng thái hiện tại
-                string requestState = "REQUEST_STATE";
-                byte[] requestData = Encoding.UTF8.GetBytes(requestState);
-                stream.Write(requestData, 0, requestData.Length);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error requesting state: {ex.Message}");
-            }
-        }
-
-        private void DrawLineFromMessage(string msg)
-        {
-            try
-            {
-                string[] parts = msg.Split(',');
-
-                if (parts.Length == 6)
-                {
-                    double x1 = double.Parse(parts[0]);
-                    double y1 = double.Parse(parts[1]);
-                    double x2 = double.Parse(parts[2]);
-                    double y2 = double.Parse(parts[3]);
-                    string colorStr = parts[4];
-                    double thickness = double.Parse(parts[5]);
-
-                    Brush brush = (Brush)new BrushConverter().ConvertFromString(colorStr);
-
-                    Line line = new Line
-                    {
-                        X1 = x1,
-                        Y1 = y1,
-                        X2 = x2,
-                        Y2 = y2,
-                        Stroke = brush,
-                        StrokeThickness = thickness
-                    };
-
-                    DrawCanvas.Children.Add(line);
-                }
-            }
-            catch (Exception ex)
-            {
-                StatusLabel.Content = $"Error drawing line: {ex.Message}";
-            }
-        }
-
-        private void EraserButton_Click(object sender, RoutedEventArgs e)
-        {
-            if (!isErasing)
-            {
-                // Switch to eraser
-                previousBrush = currentBrush;
-                previousThickness = lineThickness;
-                currentBrush = new SolidColorBrush(Colors.White);
-                lineThickness = double.Parse(((ComboBoxItem)ThicknessPicker.SelectedItem).Tag.ToString()) * 10; // Nhân 5 để tạo kích thước tẩy lớn hơn
-                EraserButton.Content = "Drawing";
-                isErasing = true;
-
-                // Disable color và thickness pickers khi đang tẩy
-                ColorPicker.IsEnabled = false;
-                ThicknessPicker.IsEnabled = true;
-
-                UpdateEraserPreview(Mouse.GetPosition(DrawCanvas));
-
-            }
-            else
-            {
-                // Switch back to drawing
-                currentBrush = previousBrush;
-                lineThickness = previousThickness;
-                EraserButton.Content = "Eraser";
-                isErasing = false;
-
-                // Enable lại color và thickness pickers
-                ColorPicker.IsEnabled = true;
-                ThicknessPicker.IsEnabled = true;
-
-                if (eraserPreview != null)
-                {
-                    DrawCanvas.Children.Remove(eraserPreview);
-                    eraserPreview = null;
-                }
-            }
-
-            StatusLabel.Content = isErasing ? "Erasing" : "Drawing";
-        }
-
-        private void UpdateEraserPreview(Point position)
-        {
-            if (isErasing)
-            {
-                if (eraserPreview == null)
-                {
-                    // Tạo preview nếu chưa tồn tại
-                    eraserPreview = new Ellipse
-                    {
-                        Stroke = Brushes.Gray,
-                        StrokeThickness = 1,
-                        Fill = new SolidColorBrush(Color.FromArgb(50, 200, 200, 200))
-                    };
-                    DrawCanvas.Children.Add(eraserPreview);
-                }
-
-                // Cập nhật kích thước và vị trí
-                double size = lineThickness;
-                eraserPreview.Width = size;
-                eraserPreview.Height = size;
-
-                // Đặt vị trí (căn giữa với con trỏ chuột)
-                Canvas.SetLeft(eraserPreview, position.X - size / 2);
-                Canvas.SetTop(eraserPreview, position.Y - size / 2);
-                Canvas.SetZIndex(eraserPreview, 9999); // Đảm bảo hiển thị trên cùng
-            }
-            else if (eraserPreview != null)
-            {
-                // Xóa preview khi không ở chế độ tẩy
-                DrawCanvas.Children.Remove(eraserPreview);
-                eraserPreview = null;
-            }
-        }
-
-
-        private void SendLine(Point from, Point to)
-        {
-            if (stream == null || !client.Connected)
-            {
-                StatusLabel.Content = "Not connected";
-                return;
-            }
-
-            try
-            {
-                string colorStr = ((SolidColorBrush)currentBrush).Color.ToString();
-                string msg = $"{from.X},{from.Y},{to.X},{to.Y},{colorStr},{lineThickness}";
-                byte[] buffer = Encoding.UTF8.GetBytes(msg);
-                stream.Write(buffer, 0, buffer.Length);
-            }
-            catch (Exception ex)
-            {
-                StatusLabel.Content = "Send error: " + ex.Message;
-            }
-        }
-
+        // UI Event Handlers
         private void ColorPicker_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (ColorPicker?.SelectedItem is ComboBoxItem item && item.Tag != null)
@@ -588,7 +922,6 @@ namespace WhiteboardClient
             }
         }
 
-
         private void ThicknessPicker_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (ThicknessPicker?.SelectedItem is ComboBoxItem item && item.Tag != null)
@@ -598,7 +931,7 @@ namespace WhiteboardClient
                     double thickness = double.Parse(item.Tag.ToString());
                     if (isErasing)
                     {
-                        lineThickness = thickness * 10; // Kích thước tẩy lớn hơn
+                        lineThickness = thickness * 10;
                     }
                     else
                     {
@@ -627,7 +960,16 @@ namespace WhiteboardClient
         protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
         {
             DisconnectFromServer();
+            _cancellationTokenSource?.Dispose();
+            stateUpdateTimer?.Dispose();
+            stream?.Dispose();
+            client?.Dispose();
             base.OnClosing(e);
+        }
+
+        private void txtImageUrl_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            // Placeholder for future functionality
         }
     }
 }
