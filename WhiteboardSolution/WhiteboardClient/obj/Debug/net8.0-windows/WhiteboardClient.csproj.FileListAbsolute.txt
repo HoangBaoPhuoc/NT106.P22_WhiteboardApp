@@ -18,3 +18,12 @@ E:\UIT\HK3\[NT106.P22.ANTT]_Network\Lab\Lab06\Whiteboard\WhiteboardSolution\Whit
 E:\UIT\HK3\[NT106.P22.ANTT]_Network\Lab\Lab06\Whiteboard\WhiteboardSolution\WhiteboardClient\obj\Debug\net8.0-windows\WhiteboardClient.pdb
 E:\UIT\HK3\[NT106.P22.ANTT]_Network\Lab\Lab06\Whiteboard\WhiteboardSolution\WhiteboardClient\obj\Debug\net8.0-windows\WhiteboardClient.genruntimeconfig.cache
 E:\UIT\HK3\[NT106.P22.ANTT]_Network\Lab\Lab06\Whiteboard\WhiteboardSolution\WhiteboardClient\obj\Debug\net8.0-windows\ref\WhiteboardClient.dll
+E:\UIT\HK3\[NT106.P22.ANTT]_Network\Lab\Lab06\Whiteboard\WhiteboardSolution\WhiteboardClient\obj\Debug\net8.0-windows\WhiteboardClient.sourcelink.json
+E:\UIT\HK3\[NT106.P22.ANTT]_Network\Lab\Lab06\Whiteboard\WhiteboardSolution\WhiteboardClient\bin\Debug\net8.0-windows\Newtonsoft.Json.dll
+E:\UIT\HK3\[NT106.P22.ANTT]_Network\Lab\Lab06\Whiteboard\WhiteboardSolution\WhiteboardClient\obj\Debug\net8.0-windows\WhiteboardClient.csproj.AssemblyReference.cache
+E:\UIT\HK3\[NT106.P22.ANTT]_Network\Lab\Lab06\Whiteboard\WhiteboardSolution\WhiteboardClient\obj\Debug\net8.0-windows\Whiteboa.14066B11.Up2Date
+E:\UIT\HK3\[NT106.P22.ANTT]_Network\Lab\Lab06\Whiteboard\WhiteboardSolution\WhiteboardClient\bin\Debug\net8.0-windows\System.Configuration.ConfigurationManager.dll
+E:\UIT\HK3\[NT106.P22.ANTT]_Network\Lab\Lab06\Whiteboard\WhiteboardSolution\WhiteboardClient\bin\Debug\net8.0-windows\System.Diagnostics.EventLog.dll
+E:\UIT\HK3\[NT106.P22.ANTT]_Network\Lab\Lab06\Whiteboard\WhiteboardSolution\WhiteboardClient\bin\Debug\net8.0-windows\System.Security.Cryptography.ProtectedData.dll
+E:\UIT\HK3\[NT106.P22.ANTT]_Network\Lab\Lab06\Whiteboard\WhiteboardSolution\WhiteboardClient\bin\Debug\net8.0-windows\runtimes\win\lib\net8.0\System.Diagnostics.EventLog.Messages.dll
+E:\UIT\HK3\[NT106.P22.ANTT]_Network\Lab\Lab06\Whiteboard\WhiteboardSolution\WhiteboardClient\bin\Debug\net8.0-windows\runtimes\win\lib\net8.0\System.Diagnostics.EventLog.dll

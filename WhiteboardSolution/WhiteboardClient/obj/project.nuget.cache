@@ -1,8 +1,13 @@
 {
   "version": 2,
-  "dgSpecHash": "ovlURyLCfcQ=",
+  "dgSpecHash": "lKJ7PxDSy5Y=",
   "success": true,
   "projectFilePath": "E:\\UIT\\HK3\\[NT106.P22.ANTT]_Network\\Lab\\Lab06\\Whiteboard\\WhiteboardSolution\\WhiteboardClient\\WhiteboardClient.csproj",
-  "expectedPackageFiles": [],
+  "expectedPackageFiles": [
+    "C:\\Users\\phuoc\\.nuget\\packages\\newtonsoft.json\\13.0.3\\newtonsoft.json.13.0.3.nupkg.sha512",
+    "C:\\Users\\phuoc\\.nuget\\packages\\system.configuration.configurationmanager\\9.0.6\\system.configuration.configurationmanager.9.0.6.nupkg.sha512",
+    "C:\\Users\\phuoc\\.nuget\\packages\\system.diagnostics.eventlog\\9.0.6\\system.diagnostics.eventlog.9.0.6.nupkg.sha512",
+    "C:\\Users\\phuoc\\.nuget\\packages\\system.security.cryptography.protecteddata\\9.0.6\\system.security.cryptography.protecteddata.9.0.6.nupkg.sha512"
+  ],
   "logs": []
 }
