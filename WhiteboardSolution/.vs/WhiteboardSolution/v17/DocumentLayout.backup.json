@@ -15,14 +15,6 @@
       "RelativeMoniker": "D:0:0:{5AD5CF6A-0A16-4026-B9AC-2F1AA207F54E}|WhiteboardServer\\WhiteboardServer.csproj|solutionrelative:whiteboardserver\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{5AD5CF6A-0A16-4026-B9AC-2F1AA207F54E}|WhiteboardServer\\WhiteboardServer.csproj|e:\\uit\\hk3\\[nt106.p22.antt]_network\\lab\\lab06\\whiteboard\\whiteboardsolution\\whiteboardserver\\app.config||{FA3CD31E-987B-443A-9B81-186104E8DAC1}",
-      "RelativeMoniker": "D:0:0:{5AD5CF6A-0A16-4026-B9AC-2F1AA207F54E}|WhiteboardServer\\WhiteboardServer.csproj|solutionrelative:whiteboardserver\\app.config||{FA3CD31E-987B-443A-9B81-186104E8DAC1}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{5AD5CF6A-0A16-4026-B9AC-2F1AA207F54E}|WhiteboardServer\\WhiteboardServer.csproj|e:\\uit\\hk3\\[nt106.p22.antt]_network\\lab\\lab06\\whiteboard\\whiteboardsolution\\whiteboardserver\\packages.config||{FA3CD31E-987B-443A-9B81-186104E8DAC1}",
-      "RelativeMoniker": "D:0:0:{5AD5CF6A-0A16-4026-B9AC-2F1AA207F54E}|WhiteboardServer\\WhiteboardServer.csproj|solutionrelative:whiteboardserver\\packages.config||{FA3CD31E-987B-443A-9B81-186104E8DAC1}"
-    },
-    {
       "AbsoluteMoniker": "D:0:0:{2D4C2F9F-A4C7-4DF9-9A75-4B60129404C8}|WhiteboardClient\\WhiteboardClient.csproj|e:\\uit\\hk3\\[nt106.p22.antt]_network\\lab\\lab06\\whiteboard\\whiteboardsolution\\whiteboardclient\\app.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}",
       "RelativeMoniker": "D:0:0:{2D4C2F9F-A4C7-4DF9-9A75-4B60129404C8}|WhiteboardClient\\WhiteboardClient.csproj|solutionrelative:whiteboardclient\\app.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}"
     }
@@ -34,7 +26,7 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 7,
+          "SelectedChildIndex": 5,
           "Children": [
             {
               "$type": "Document",
@@ -44,11 +36,10 @@
               "RelativeDocumentMoniker": "WhiteboardServer\\Program.cs",
               "ToolTip": "E:\\UIT\\HK3\\[NT106.P22.ANTT]_Network\\Lab\\Lab06\\Whiteboard\\WhiteboardSolution\\WhiteboardServer\\Program.cs",
               "RelativeToolTip": "WhiteboardServer\\Program.cs",
-              "ViewState": "AgIAAJEAAAAAAAAAAADgv4sAAAAtAAAAAAAAAA==",
+              "ViewState": "AgIAAGYBAAAAAAAAAAAswIwBAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2025-06-03T01:42:11.108Z",
-              "IsPinned": true,
-              "EditorCaption": ""
+              "IsPinned": true
             },
             {
               "$type": "Bookmark",
@@ -60,41 +51,14 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 4,
-              "Title": "packages.config",
-              "DocumentMoniker": "E:\\UIT\\HK3\\[NT106.P22.ANTT]_Network\\Lab\\Lab06\\Whiteboard\\WhiteboardSolution\\WhiteboardServer\\packages.config",
-              "RelativeDocumentMoniker": "WhiteboardServer\\packages.config",
-              "ToolTip": "E:\\UIT\\HK3\\[NT106.P22.ANTT]_Network\\Lab\\Lab06\\Whiteboard\\WhiteboardSolution\\WhiteboardServer\\packages.config",
-              "RelativeToolTip": "WhiteboardServer\\packages.config",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000601|",
-              "WhenOpened": "2025-06-16T12:43:55.354Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
               "DocumentIndex": 3,
-              "Title": "App.config",
-              "DocumentMoniker": "E:\\UIT\\HK3\\[NT106.P22.ANTT]_Network\\Lab\\Lab06\\Whiteboard\\WhiteboardSolution\\WhiteboardServer\\App.config",
-              "RelativeDocumentMoniker": "WhiteboardServer\\App.config",
-              "ToolTip": "E:\\UIT\\HK3\\[NT106.P22.ANTT]_Network\\Lab\\Lab06\\Whiteboard\\WhiteboardSolution\\WhiteboardServer\\App.config",
-              "RelativeToolTip": "WhiteboardServer\\App.config",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAoAAAAjAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000601|",
-              "WhenOpened": "2025-06-16T12:41:03.973Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 5,
               "Title": "App.xaml",
               "DocumentMoniker": "E:\\UIT\\HK3\\[NT106.P22.ANTT]_Network\\Lab\\Lab06\\Whiteboard\\WhiteboardSolution\\WhiteboardClient\\App.xaml",
               "RelativeDocumentMoniker": "WhiteboardClient\\App.xaml",
               "ToolTip": "E:\\UIT\\HK3\\[NT106.P22.ANTT]_Network\\Lab\\Lab06\\Whiteboard\\WhiteboardSolution\\WhiteboardClient\\App.xaml",
               "RelativeToolTip": "WhiteboardClient\\App.xaml",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003549|",
-              "WhenOpened": "2025-06-03T02:39:08.577Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-06-03T02:39:08.577Z"
             },
             {
               "$type": "Document",
@@ -105,8 +69,7 @@
               "ToolTip": "E:\\UIT\\HK3\\[NT106.P22.ANTT]_Network\\Lab\\Lab06\\Whiteboard\\WhiteboardSolution\\WhiteboardClient\\MainWindow.xaml",
               "RelativeToolTip": "WhiteboardClient\\MainWindow.xaml",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003549|",
-              "WhenOpened": "2025-06-03T01:40:48.411Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-06-03T01:40:48.411Z"
             },
             {
               "$type": "Document",
@@ -116,7 +79,7 @@
               "RelativeDocumentMoniker": "WhiteboardClient\\MainWindow.xaml.cs",
               "ToolTip": "E:\\UIT\\HK3\\[NT106.P22.ANTT]_Network\\Lab\\Lab06\\Whiteboard\\WhiteboardSolution\\WhiteboardClient\\MainWindow.xaml.cs",
               "RelativeToolTip": "WhiteboardClient\\MainWindow.xaml.cs",
-              "ViewState": "AgIAAPECAAAAAAAAAAAswBYDAAAJAAAAAAAAAA==",
+              "ViewState": "AgIAAJgCAAAAAAAAAAApwK0CAAAxAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2025-06-03T01:40:46.931Z",
               "EditorCaption": ""
